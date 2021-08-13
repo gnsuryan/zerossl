@@ -91,9 +91,11 @@ else
   exit 1
 fi
 
-curl -s -X POST http://api.zerossl.com/certificates/${ID}?access_key="$ZEROSSL_KEY" -o status.resp
+
+curl -s -X GET http://api.zerossl.com/certificates/${ID}?access_key="$ZEROSSL_KEY" -o status.resp
 CERT_STATUS=$(cat status.resp | jq -r '.status')
 
+echo "status of certificate before initiating verification"
 if [ "$CERT_STATUS" == "draft" ];
 then
  echo "Certificate ${ID} is in Draft Status. Can proceed with Verification".
@@ -103,10 +105,10 @@ then
 fi
 
 curl -s -X GET http://api.zerossl.com/certificates/${ID}?access_key="$ZEROSSL_KEY" -o status.resp
+echo "status of certificate after initiating verification"
+CERT_STATUS=$(cat status.resp | jq -r '.status')
 
-VALIDATION_STATUS=$(cat status.resp | jq -r '.status')
-
-if [ "$STATUS" == "issued" ];
+if [ "$CERT_STATUS" == "issued" ];
 then
   echo "Certificate Domain Verification Successful and Certificate has been issued"
 else
