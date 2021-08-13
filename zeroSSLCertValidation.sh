@@ -85,9 +85,9 @@ STATUS=$(curl -o /dev/null --silent -Iw '%{http_code}' $VALIDATION_URL)
 
 if [ "$STATUS" == "200" ];
 then
-  echo "Certification Validation Text file avaialble at $VALIDATION_URL"
+  echo "Certificate Validation Text file avaialble at $VALIDATION_URL"
 else
-  echo "Certification Validation Text file not available at $VALIDATION_URL"
+  echo "Certificate Validation Text file not available at $VALIDATION_URL"
   exit 1
 fi
 
@@ -102,13 +102,13 @@ then
  sleep 10s
 fi
 
-curl -s -X GET http://api.zerossl.com/certificates/${ID}/status?access_key="$ZEROSSL_KEY" -o status.resp
+curl -s -X GET http://api.zerossl.com/certificates/${ID}?access_key="$ZEROSSL_KEY" -o status.resp
 
-VALIDATION_STATUS=$(cat status.resp | jq -r '.validation_completed')
+VALIDATION_STATUS=$(cat status.resp | jq -r '.status')
 
-if [ "$VALIDATION_STATUS" == "1" ];
+if [ "$STATUS" == "issued" ];
 then
-  echo "Certificate Domain Verification Successful and Completed"
+  echo "Certificate Domain Verification Successful and Certificate has been issued"
 else
   echo "Certification Domain verification failed"
   exit 1
