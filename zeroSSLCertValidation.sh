@@ -25,7 +25,19 @@ function validate_input()
    fi
 }
 
+function cleanup()
+{
+  echo "killing python http server process : ${pid}"
+  kill "${pid}"
+  echo "cleaning up temporary files..."
+  rm -rf status.resp
+  #mv "$CERT_NAME".resp $CURR_DIR/generated/
+}
+
 #main
+
+trap cleanup EXIT
+
 CURR_DIR=$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )
 source $CURR_DIR/cert.cfg
 
@@ -38,9 +50,9 @@ validate_input
 
 ID="$(cat $RESPONSE_FILE | jq -r '.id')"
 URL=$(cat $RESPONSE_FILE | jq -r ".validation.other_methods.\"${CERT_NAME}\".file_validation_url_http")
-echo $URL
+echo "URL: $URL"
 FILE_NAME="${URL##*/}"
-echo $FILE_NAME
+echo "FILENAME: $FILE_NAME"
 
 #Create Target Directory to host File for Certification Verification
 TARGET_DIR="$CURR_DIR/.well-known/pki-validation"
@@ -48,40 +60,61 @@ mkdir -p $TARGET_DIR
 
 cat $RESPONSE_FILE | jq -r ".validation.other_methods.\"${CERT_NAME}\".file_validation_content|join(\"\n\")" > $TARGET_DIR/$FILE_NAME
 
+cat $TARGET_DIR/$FILE_NAME
+
 #enable port 80
 sudo firewall-cmd --zone=public --add-port=80/tcp
 sudo firewall-cmd --runtime-to-permanent
 sudo systemctl restart firewalld
+
+#kill any stale process running on port 80
+ps aux | grep SimpleHTTPServer | grep -v grep | awk '{print $2}' | xargs kill
 
 #start webserver using python simplehttp server
 echo "starting webserver at port 80"
 python -m SimpleHTTPServer 80 &
 pid=$!
 
-sleep 1
+VALIDATION_URL="http://$CERT_NAME/.well-known/pki-validation/$FILE_NAME"
+echo "VALIDATION URL: $VALIDATION_URL"
 
-VALIDATION_URL="http://$CERT_NAME/.well-known/pki-validation/EB8C2D0F5C6256039A5206FE2B5A4EF3.txt"
-status=$(curl -I $VALIDATION_URL  2>&1 | awk '/HTTP\// {print $2}')
+echo "wait for few seconds for the web server to start listening"
+sleep 5s
 
-if [ $status != 200 ];
+STATUS=$(curl -o /dev/null --silent -Iw '%{http_code}' $VALIDATION_URL)
+
+if [ "$STATUS" == "200" ];
 then
+  echo "Certification Validation Text file avaialble at $VALIDATION_URL"
+else
   echo "Certification Validation Text file not available at $VALIDATION_URL"
   exit 1
 fi
 
-curl -s -X POST https://api.zerossl.com/certificates/${ID}/challenges?access_key="$ZEROSSL_KEY" -d validation_method=HTTP_CSR_HASH -0 validation.resp
+curl -s -X POST http://api.zerossl.com/certificates/${ID}?access_key="$ZEROSSL_KEY" -o status.resp
+CERT_STATUS=$(cat status.resp | jq -r '.status')
 
-VALIDATION_STATUS=$(cat validation.resp | jq -r '.status')
-
-if [ "$VALIDATION_STATUS" == "pending_validation" ];
+if [ "$CERT_STATUS" == "draft" ];
 then
-  echo "Certificate Domain Verification Successfull. Pending issuance"
+ echo "Certificate ${ID} is in Draft Status. Can proceed with Verification".
+ curl -s -X POST https://api.zerossl.com/certificates/${ID}/challenges?access_key="$ZEROSSL_KEY" -d validation_method=HTTP_CSR_HASH
+ echo "wait for 10 secs to ensure certification is verified"
+ sleep 10s
+fi
+
+curl -s -X GET http://api.zerossl.com/certificates/${ID}/status?access_key="$ZEROSSL_KEY" -o status.resp
+
+VALIDATION_STATUS=$(cat status.resp | jq -r '.validation_completed')
+
+if [ "$VALIDATION_STATUS" == "1" ];
+then
+  echo "Certificate Domain Verification Successful and Completed"
 else
   echo "Certification Domain verification failed"
   exit 1
 fi
 
-#Download the certificate
+echo "downloading certificate..."
 curl  https://api.zerossl.com/certificates/${ID}/download?access_key="$ZEROSSL_KEY" --output $CURR_DIR/certificate.zip
+echo "certificate download successfully."
 
-kill "${pid}"
