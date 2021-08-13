@@ -27,6 +27,7 @@ function validate_input()
 
 #main
 CURR_DIR=$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )
+source $CURR_DIR/cert.cfg
 
 read CERT_NAME RESPONSE_FILE
 
@@ -36,7 +37,7 @@ echo "RESPONSE_FILE: $RESPONSE_FILE"
 validate_input
 
 ID="$(cat $RESPONSE_FILE | jq -r '.id')"
-URL=$(cat $RESPONSE_FILE | jq -r '.validation.other_methods."${CERT_NAME}"."file_validation_url_http"')
+URL=$(cat $RESPONSE_FILE | jq -r ".validation.other_methods.\"${CERT_NAME}\".file_validation_url_http")
 echo $URL
 FILE_NAME="${URL##*/}"
 echo $FILE_NAME
@@ -45,7 +46,7 @@ echo $FILE_NAME
 TARGET_DIR="$CURR_DIR/.well-known/pki-validation"
 mkdir -p $TARGET_DIR
 
-cat $RESPONSE_FILE | jq -r '.validation.other_methods."${CERT_NAME}".file_validation_content|join("\n")' > $TARGET_DIR/$FILE_NAME
+cat $RESPONSE_FILE | jq -r ".validation.other_methods.\"${CERT_NAME}\".file_validation_content|join(\"\n\")" > $TARGET_DIR/$FILE_NAME
 
 #enable port 80
 sudo firewall-cmd --zone=public --add-port=80/tcp
