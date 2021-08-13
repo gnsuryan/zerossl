@@ -27,17 +27,13 @@ read CERT_NAME
 
 validate_input
 
-GENERATED_DIR="$CURR_DIR/generated"
-
-mkdir -p $GENERATED_DIR
-
 # Create CSR and Private Key
 openssl req -new \
- -newkey rsa:2048 -nodes -keyout "$GENERATED_DIR/$CERT_NAME".key \
- -out $CURR_DIR/"$CERT_NAME".csr \
+ -newkey rsa:2048 -nodes -keyout "$CERT_NAME".key \
+ -out "$CERT_NAME".csr \
  -subj "/C=IN/ST=Karnataka/L=Bangalore/O=Oracle India Pvt Limited/OU=WLS QA/CN=$CERT_NAME"
 
-RESPONSE_FILE="$CURR_DIR/${CERT_NAME}.resp"
+RESPONSE_FILE="${CERT_NAME}.resp"
 # Draft certificate at ZeroSSL
 curl -s -X POST https://api.zerossl.com/certificates?access_key="$ZEROSSL_KEY" \
         --data-urlencode certificate_csr@"$CERT_NAME".csr \
@@ -46,7 +42,10 @@ curl -s -X POST https://api.zerossl.com/certificates?access_key="$ZEROSSL_KEY" \
         -o $RESPONSE_FILE
 
 
+GENERATED_DIR="$CURR_DIR/generated"
+mkdir -p $GENERATED_DIR
 mv "$CERT_NAME".csr ${GENERATED_DIR}/${CERT_NAME}.csr
+mv "$CERT_NAME".key ${GENERATED_DIR}/${CERT_NAME}.key
 
 echo "Successfully created certificate request"
 echo "Use zeroCertValidation.sh to validate the certificate on zerossl to generate and download  the certificate"
