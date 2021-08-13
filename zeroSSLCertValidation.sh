@@ -36,7 +36,8 @@ echo "RESPONSE_FILE: $RESPONSE_FILE"
 validate_input
 
 ID="$(cat $RESPONSE_FILE | jq -r '.id')"
-URL=$(cat RESPONSE_FILE | jq -r '.validation.other_methods."${CERT_NAME}"."file_validation_url_http"')
+URL=$(cat $RESPONSE_FILE | jq -r '.validation.other_methods."${CERT_NAME}"."file_validation_url_http"')
+echo $URL
 FILE_NAME="${URL##*/}"
 echo $FILE_NAME
 
@@ -53,7 +54,10 @@ sudo systemctl restart firewalld
 
 #start webserver using python simplehttp server
 echo "starting webserver at port 80"
-python -m SimpleHTTPServer 80
+python -m SimpleHTTPServer 80 &
+pid=$!
+
+sleep 1
 
 VALIDATION_URL="http://$CERT_NAME/.well-known/pki-validation/EB8C2D0F5C6256039A5206FE2B5A4EF3.txt"
 status=$(curl -I $VALIDATION_URL  2>&1 | awk '/HTTP\// {print $2}')
@@ -78,3 +82,5 @@ fi
 
 #Download the certificate
 curl  https://api.zerossl.com/certificates/${ID}/download?access_key="$ZEROSSL_KEY" --output $CURR_DIR/certificate.zip
+
+kill "${pid}"

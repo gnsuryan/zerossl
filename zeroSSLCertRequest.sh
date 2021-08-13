@@ -40,10 +40,13 @@ openssl req -new \
 RESPONSE_FILE="$CURR_DIR/${CERT_NAME}.resp"
 # Draft certificate at ZeroSSL
 curl -s -X POST https://api.zerossl.com/certificates?access_key="$ZEROSSL_KEY" \
-        --data-urlencode certificate_csr@"$GENERATED_DIR/$CERT_NAME".csr \
+        --data-urlencode certificate_csr@"$CERT_NAME".csr \
         -d certificate_domains="$CERT_NAME" \
         -d certificate_validity_days=90 \
         -o $RESPONSE_FILE
+
+
+mv "$CERT_NAME".csr ${GENERATED_DIR}/${CERT_NAME}.csr
 
 echo "Successfully created certificate request"
 echo "Use zeroCertValidation.sh to validate the certificate on zerossl to generate and download  the certificate"
